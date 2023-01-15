@@ -1,0 +1,53 @@
+import ipaddress
+from scapy.all import *
+import scapy.layers.l2
+from scapy.layers.inet import TCP, IP
+
+cmd = """ip -br -4 add | awk -F" " '{print $1 " " $3}'"""
+
+interfaces = subprocess.check_output(cmd, shell=True).decode('utf8').splitlines()
+inet = []
+
+for interface in interfaces:
+    inet.append(interface.split())
+
+print(inet[1][1])
+
+for i in range(len(inet)):
+    print(
+        f'{i}\tInterface name: \033[1m {str(inet[i][0])}\033[0m\n'  # https://docs.python.org/3/library/ipaddress.html
+        f'\tInterface IP address:\033[1m {ipaddress.ip_interface(inet[i][1]).ip}\033[0m\n '
+        #        f'prefix length:\033[1m {ipaddress.ip_interface(inet[i][1]).network.prefixlen}\033[0m\n '
+        f'\tNetwork address: \033[1m {ipaddress.ip_interface(inet[i][1]).network.network_address}\033[0m '
+        f'network subnet mask: \033[1m {ipaddress.ip_interface(inet[i][1]).network.netmask}\033[0m ')
+print(inet[1][1])
+# Craft ARP ether broadcast packet and send ARP packet to find available IP's in subnet
+subnet = int(input("Enter number of subnet to scan: "))
+packet = scapy.layers.l2.Ether(dst="ff:ff:ff:ff:ff:ff") / scapy.layers.l2.ARP(pdst=inet[subnet][1])
+ans, unans = srp(packet, timeout=1, verbose=0)
+for snd, rcv in ans:
+    print(f'IP: {snd.pdst}, MAC: {rcv.src}')
+
+# Craft packet with SYN flag and send it to target IP address.
+# Then list ports on target IP which send back packet with SYN - ACK flag.
+target = str(input("Enter IP address of target machine: "))
+packet = (IP(dst=target) / TCP(sport=random.randint(5000, 65535), dport=(1, 1024), flags="S"))
+ans, unans = sr(packet, timeout=1, verbose=0)
+for snd, rcv in ans:
+    if rcv[TCP].flags == "SA":
+        print(f'Port {rcv[TCP].sport} on {target} is open')
+
+#curl 192.168.114.148 | tail -1
+#echo RW51bWVyYXRlIG1lIHdpdGggZGlyZWN0b3J5LWxpc3QtbG93ZXJjYXNlLTIuMy1tZWRpdW0udHh0 | base64 -d
+#wfuzz -c -w /home/kali/SecLists/Discovery/Web-Content/directory-list-lowercase-2.3-medium.txt --hc 404 http://192.168.114.148/FUZZ
+#http://ip/requests
+#mercury
+# venus
+# earth
+# mars
+# jupiter
+# saturn
+# uranus
+# neptune
+
+
